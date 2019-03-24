@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# Script to login/logout from a Stormshield firewall,
+# like the one at IPGP.
+#
+# (c) 2019 Claudio Satriano <satriano@ipgp.fr>
+#
+#   This program is free software: you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation, either version 3 of the License, or
+#   (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful,
+#   but WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#   GNU General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+BASE_URL=https://fw.ipgp.fr
+WORKDIR=$HOME/.fwall
+mkdir -p $WORKDIR
+COOKIE_FILE=$WORKDIR/cookie.tmp
+
+# Get login info from a secret login_file.
+# Create the files (with mode 600) if it does not exist.
+function get_login_info() {
+  login_file=$WORKDIR/fw_login
+  if [ ! -f $login_file ]; then
+    echo "$login_file not found!"
+    cat << EOF > $login_file
+username _YOUR_USERNAME_
+password _YOUR_PASSWORD_
+EOF
+    chmod 600 $login_file
+    echo "A new file has been created: $login_file"
+    echo "Please edit it."
+    exit 1
+  fi
+  USERNAME=`grep username $login_file | awk '{print $2}'`
+  PASSWORD=`grep password $login_file | awk '{print $2}'`
+}
+
+# Login using a HTTP POST, then download and open the java applet.
+function login() {
+  get_login_info
+
+  curl -s \
+  --cookie $COOKIE_FILE \
+  --cookie-jar $COOKIE_FILE \
+  -d "time=240&uid=$USERNAME&authnum=0&pswd=$PASSWORD" \
+  -X POST \
+  $BASE_URL/auth/plain.html \
+  > /dev/null
+
+  curl -s \
+  --cookie $COOKIE_FILE \
+  --cookie-jar $COOKIE_FILE \
+  -o $WORKDIR/tmp.jnlp \
+  $BASE_URL/auth/xvpnc.jnlp \
+  > /dev/null
+
+  if [ "$(head -n 1 $WORKDIR/tmp.jnlp)" != "<jnlp" ]; then
+    echo "Error during login."
+    exit 1
+  fi
+
+  # The jnlp file must be renamed according to the "href" tag,
+  # otherwhise it does not work
+  echo "Starting Java applet..."
+  jnlp_name=$(
+  grep href $WORKDIR/tmp.jnlp |\
+  grep jnlp |\
+  sed 's/href=//' |\
+  tr -d '"' |\
+  awk '{print $1}'
+  )
+  mv $WORKDIR/tmp.jnlp $WORKDIR/$jnlp_name
+
+  javaws $WORKDIR/$jnlp_name || exit 1
+}
+
+# Logout using HTTP GET, remove the COOKIE_FILE and other temp files
+function logout() {
+  curl -s \
+  --cookie $COOKIE_FILE \
+  --cookie-jar $COOKIE_FILE \
+  $BASE_URL/auth/auth.html\?url\&uid\&time\=240\&logout\=Logout \
+  > /dev/null && echo "Successfully logged out."
+
+  rm -f $COOKIE_FILE
+  rm -f $WORKDIR/*.jnlp
+}
+
+# Simple usage function
+function usage() {
+  echo "Usage $0 {login|logout}"
+}
+
+
+# Main code of the script
+case $# in
+  0)
+    usage
+    exit 1
+    ;;
+  1)
+    case $1 in
+      login)
+        login
+        ;;
+      logout)
+        logout
+        ;;
+      *)
+       echo "'$1' is not a valid verb."
+       usage
+       exit 2
+       ;;
+    esac
+    ;;
+  *)
+    echo "Too many args provided ($#)."
+    usage
+    exit 3
+    ;;
+esac
