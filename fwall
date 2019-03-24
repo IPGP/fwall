@@ -62,6 +62,8 @@ function login() {
 
   if [ "$(head -n 1 $WORKDIR/tmp.jnlp)" != "<jnlp" ]; then
     echo "Error during login."
+    rm -f $COOKIE_FILE
+    rm -f $WORKDIR/*.jnlp
     exit 1
   fi
 
