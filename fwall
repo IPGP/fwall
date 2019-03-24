@@ -22,23 +22,101 @@ WORKDIR=$HOME/.fwall
 mkdir -p $WORKDIR
 COOKIE_FILE=$WORKDIR/cookie.tmp
 
-# Get login info from a secret login_file.
-# Create the files (with mode 600) if it does not exist.
-function get_login_info() {
+# Get user credentials from user input
+function get_login_info_user() {
+  read -p 'username: ' USERNAME
+  read -sp 'password: ' PASSWORD
+  echo
+}
+
+# Get login info from a secret login_file
+function get_login_info_plaintext() {
   login_file=$WORKDIR/fw_login
   if [ ! -f $login_file ]; then
-    echo "$login_file not found!"
-    cat << EOF > $login_file
-username _YOUR_USERNAME_
-password _YOUR_PASSWORD_
-EOF
-    chmod 600 $login_file
-    echo "A new file has been created: $login_file"
-    echo "Please edit it."
-    exit 1
+    get_login_info_user
+  else
+    USERNAME=`grep username $login_file | awk '{print $2}'`
+    PASSWORD=`grep password $login_file | awk '{print $2}'`
   fi
-  USERNAME=`grep username $login_file | awk '{print $2}'`
-  PASSWORD=`grep password $login_file | awk '{print $2}'`
+}
+
+# Store login info into a secret login_file
+function store_login_info_plaintext() {
+  login_file=$WORKDIR/fw_login
+  if [ -f $login_file ]; then
+    return
+  fi
+  while [ true ]; do
+    msg="Do you want to store password in a read-protected text file "
+    msg="$msg in $WORKDIR? [y/N] "
+    read -p "$msg" ans
+    [ -z $ans ] && ans="n"
+    [ $ans == "y" ] || [ $ans == "Y" ] ||\
+    [ $ans == "n" ] || [ $ans == "N" ] && break
+  done
+  if [ $ans == "y" ] || [ $ans == "y" ]; then
+    echo "username $USERNAME" > $login_file
+    echo "password $PASSWORD" >> $login_file
+    chmod 600 $login_file
+  fi
+}
+
+# Get login info from macOS keychain
+function get_login_info_macos_keychain() {
+  login_file=$WORKDIR/fw_login
+  domain=`echo $BASE_URL | sed 's/http:\/\///' | sed 's/https:\/\///'`
+  if [ ! -f $login_file ]; then
+    get_login_info_user
+  else
+    USERNAME=`grep username $login_file | awk '{print $2}'`
+    PASSWORD=`security find-internet-password -a $USERNAME -s $domain -w`
+    # if password is not in keychain, start again from scratch
+    if [ $? -ne 0 ]; then
+      rm $login_file
+      get_login_info_macos_keychain
+    fi
+  fi
+}
+
+# Store login info into macOS keychain
+function store_login_info_macos_keychain() {
+  login_file=$WORKDIR/fw_login
+  domain=`echo $BASE_URL | sed 's/http:\/\///' | sed 's/https:\/\///'`
+  if [ -f $login_file ]; then
+    return
+  fi
+  while [ true ]; do
+    msg="Do you want to store password in macOS keychain? [y/N] "
+    read -p "$msg" ans
+    [ -z $ans ] && ans="n"
+    [ $ans == "y" ] || [ $ans == "Y" ] ||\
+    [ $ans == "n" ] || [ $ans == "N" ] && break
+  done
+  if [ $ans == "y" ] || [ $ans == "y" ]; then
+    echo "username $USERNAME" > $login_file
+    chmod 600 $login_file
+    security add-internet-password -U -s $domain -a $USERNAME -w $PASSWORD
+  fi
+}
+
+# Generic function to get login info
+function get_login_info() {
+  if [ "$(uname)" == "Darwin" ]
+  then
+    get_login_info_macos_keychain
+  else
+    get_login_info_plaintext
+  fi
+}
+
+# Generic function to store login info
+function store_login_info() {
+  if [ "$(uname)" == "Darwin" ]
+  then
+    store_login_info_macos_keychain
+  else
+    store_login_info_plaintext
+  fi
 }
 
 # Login using a HTTP POST, then download and open the java applet.
@@ -66,6 +144,8 @@ function login() {
     rm -f $WORKDIR/*.jnlp
     exit 1
   fi
+  # if login succedeed, then ask to store login info
+  store_login_info
 
   # The jnlp file must be renamed according to the "href" tag,
   # otherwhise it does not work
