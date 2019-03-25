@@ -109,11 +109,52 @@ function store_login_info_macos_keychain() {
   fi
 }
 
+# Get login info from Linux keyring
+function get_login_info_keyring() {
+  login_file=$WORKDIR/fw_login
+  domain=`echo $BASE_URL | sed 's/http:\/\///' | sed 's/https:\/\///'`
+  if [ ! -f $login_file ]; then
+    get_login_info_user
+  else
+    USERNAME=`grep username $login_file | awk '{print $2}'`
+    PASSWORD=`keyring get $domain $USERNAME`
+    # if password is not in keyring, start again from scratch
+    if [ $? -ne 0 ]; then
+      rm $login_file
+      get_login_info_keyring
+    fi
+  fi
+}
+
+# Store login info into Linux keyring
+function store_login_info_keyring() {
+  login_file=$WORKDIR/fw_login
+  domain=`echo $BASE_URL | sed 's/http:\/\///' | sed 's/https:\/\///'`
+  if [ -f $login_file ]; then
+    return
+  fi
+  while [ true ]; do
+    msg="Do you want to store password in keyring? [y/N] "
+    read -p "$msg" ans
+    [ -z $ans ] && ans="n"
+    [ $ans == "y" ] || [ $ans == "Y" ] ||\
+    [ $ans == "n" ] || [ $ans == "N" ] && break
+  done
+  if [ $ans == "y" ] || [ $ans == "y" ]; then
+    echo "username $USERNAME" > $login_file
+    chmod 600 $login_file
+    echo $PASSWORD | keyring set $domain $USERNAME
+  fi
+}
+
 # Generic function to get login info
 function get_login_info() {
   if [ "$(uname)" == "Darwin" ]
   then
     get_login_info_macos_keychain
+  elif [ "$(uname)" == "Linux" ] && command -v keyring > /dev/null
+  then
+    get_login_info_keyring
   else
     get_login_info_plaintext
   fi
@@ -124,6 +165,9 @@ function store_login_info() {
   if [ "$(uname)" == "Darwin" ]
   then
     store_login_info_macos_keychain
+  elif [ "$(uname)" == "Linux" ] && command -v keyring > /dev/null
+  then
+    store_login_info_keyring
   else
     store_login_info_plaintext
   fi
