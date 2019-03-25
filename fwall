@@ -17,6 +17,16 @@
 #   You should have received a copy of the GNU General Public License
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+# curl and javaws must be installed
+if ! command -v curl > /dev/null; then
+  echo "Please install 'curl'!"
+  exit 1
+fi
+if ! command -v javaws > /dev/null; then
+  echo "Please install 'javaws'!"
+  exit 1
+fi
+
 BASE_URL=https://fw.ipgp.fr
 WORKDIR=$HOME/.fwall
 mkdir -p $WORKDIR
