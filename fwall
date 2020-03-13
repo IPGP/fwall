@@ -2,7 +2,7 @@
 # Script to login/logout from a Stormshield firewall,
 # like the one at IPGP.
 #
-# (c) 2019 Claudio Satriano <satriano@ipgp.fr>
+# (c) 2019-2020 Claudio Satriano <satriano@ipgp.fr>
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
