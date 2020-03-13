@@ -31,6 +31,8 @@ BASE_URL=https://fw.ipgp.fr
 WORKDIR=$HOME/.fwall
 mkdir -p $WORKDIR
 COOKIE_FILE=$WORKDIR/cookie.tmp
+# make sure we use system curl
+CURL="env -i curl"
 
 # Get user credentials from user input
 function get_login_info_user() {
@@ -177,7 +179,7 @@ function store_login_info() {
 function login() {
   get_login_info
 
-  curl -s \
+  $CURL -s \
   --cookie $COOKIE_FILE \
   --cookie-jar $COOKIE_FILE \
   -d "time=240&uid=$USERNAME&authnum=0&pswd=$PASSWORD" \
@@ -185,7 +187,7 @@ function login() {
   $BASE_URL/auth/plain.html \
   > /dev/null
 
-  curl -s \
+  $CURL -s \
   --cookie $COOKIE_FILE \
   --cookie-jar $COOKIE_FILE \
   -o $WORKDIR/tmp.jnlp \
@@ -218,7 +220,7 @@ function login() {
 
 # Logout using HTTP GET, remove the COOKIE_FILE and other temp files
 function logout() {
-  curl -s \
+  $CURL -s \
   --cookie $COOKIE_FILE \
   --cookie-jar $COOKIE_FILE \
   $BASE_URL/auth/auth.html\?url\&uid\&time\=240\&logout\=Logout \
