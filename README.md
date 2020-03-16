@@ -22,11 +22,12 @@ To login, type in your terminal:
 $ fwall login
 ```
 
-Will ask for username and password and propose to store the credentials
-on macOS or Linux keychain (if available) or in a read-protected file.
-A `javaws` window will open.
+The script will ask for username and password and propose to store your
+login credentials on macOS or Linux keychain (if available) or in a
+read-protected file.
+A Java Web Start window will open.
 
-To logout, first close the `javaws` window, then type:
+To logout, first close the Java Web Start window, then type:
 
 ```
 $ fwall logout
