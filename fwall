@@ -18,8 +18,16 @@
 #   along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 # curl and javaws must be installed
-if ! command -v curl > /dev/null; then
+if ! env -i curl --help 2>/dev/null > /dev/null; then
   echo "Please install 'curl'!"
+  if command -v curl > /dev/null; then
+    echo
+    echo "Note that you might have a 3rd-party version of 'curl':"
+    echo -n "   "
+    command -v curl
+    echo "This is currently not supported."
+    echo "Please install a system version of 'curl' through your package manager."
+  fi
   exit 1
 fi
 if ! command -v javaws > /dev/null; then
